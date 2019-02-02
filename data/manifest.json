@@ -1,0 +1,43 @@
+{
+  "short_name": "FishFeeder",
+  "name": "FishFeederApp",
+  "icons": [
+	{
+		"src": "FishFeeder-icon-0-75x.png", 
+		"sizes": "36x36", 
+		"type": "image/png", 
+		"density": 0.75 
+	}, { 
+		"src": "FishFeeder-icon-1x.png", 
+		"sizes": "48x48", 
+		"type": "image/png", 
+		"density": 1.0 
+	}, { 
+		"src": "FishFeeder-icon-1-5x.png", 
+		"sizes": "72x72", 
+		"type": "image/png", 
+		"density": 1.5 
+	}, {
+      "src": "FishFeeder-icon-2x.png",
+      "sizes": "96x96",
+      "type": "image/png", 
+		"density": 2.0 
+    }, {
+      "src": "FishFeeder-icon-3x.png",
+      "sizes": "144x144",
+      "type": "image/png", 
+		"density": 3.0 
+    }, {
+      "src": "FishFeeder-icon-4x.png",
+      "sizes": "192x192",
+      "type": "image/png", 
+		"density": 4.0 
+    }
+  ],
+  "start_url": "index.htm",
+  "background_color": "black",
+  "theme_color": "black",
+  "description": "A time based trigger app",
+  "display": "standalone",
+  "orientation": "portrait"
+}

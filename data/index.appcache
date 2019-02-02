@@ -1,0 +1,18 @@
+CACHE MANIFEST
+# 2017-03-26 v0.1.0
+/FishFeeder-icon-0-75x.png
+/FishFeeder-icon1-5x.png
+/FishFeeder-icon-1x.png
+/FishFeeder-icon-2x.png
+/FishFeeder-icon-3x.png
+/FishFeeder-icon-4x.png
+/ic_info_white_48dp_2x.png
+/ic_settings_white_48dp_2x.png
+/that.js
+/styles.css
+/favicon.ico
+/offline.html
+NETWORK:
+/html/ /offline.html
+
+FALLBACK:

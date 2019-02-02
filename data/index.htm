@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html manifest="index.appcache">
+<head>
+  <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+  <title>Dispenser App</title>
+  <link rel="stylesheet" href="styles.css" type="text/css">
+  <link rel="manifest" href="/manifest.json">
+  <script src="/that.js"></script>
+  <script>
+	  document.addEventListener("DOMContentLoaded",function (event){onBodyLoad()});
+  </script>
+
+</head>
+<body id="index">
+	<div id="topTime">
+		<div class="thrd"></div>
+		<div class="thrd" id="time"></div>  
+		<div class="thrd"></div>
+		<div class="clearem"></div>
+	</div>
+	<div class="full"  id="inputs">
+		<form action="/submit" method="post">
+			<div id="feedTimeForm">
+
+			</div>
+		</form>
+	</div>
+	<div class="clearem"></div>
+	<div class="full" id="btnHld" >
+		<input id="inputMoment" type="time" name="feedTime[]" /><div id="newFeedTime" class="button">Add</div>
+	</div>
+	
+	<div class="full" >
+		<div id="instructions">
+			<H3>Instructions</H3>
+			Press the <img src="ic_settings_white_48dp_2x.png"> button to set the duration and degrees of movement for the servo<br>
+			The servo will go back and forth between the 90&deg; point and return to 0&deg; after the set duration of movement<br><br>
+			Press the <strong>Add</strong> button to add a new trigger moment to your list.<br>
+			You can set up to 8 seperate trigger moments.<br><br>
+			To edit a set moment simply touch the time u wish to edit.<br>
+			If u wish to remove it comletely, set the moment to an empty value<div id="dummyTime">--:--</div><br>
+			To view or hide this text, touch the info <img src="ic_info_white_48dp_2x.png"> button.<br><br>
+		</div>
+
+
+		<div id="configPopup">
+			<h3>Configuration</h3>
+			<input id="duration" name="duration" class="conf" type="number" min="0" max="254" />
+			<p>
+				Duration, up to 254 seconds.
+			</p>
+			<input id="angle" name="angle" class="conf" type="number" min="0" max="180" />
+			<p>
+				Degrees of movement.<br>Between 0 and 180.
+			</p>
+
+			<div class="clearem"></div>
+			<div id="confSubmit" class="button">set</div>
+		</div>
+	</div>	
+	
+	<div id="botmButnhld" >
+		<div class="leftThrd"><div id="readme" ><img src="ic_info_white_48dp_2x.png"></div></div>	
+		<div class="middleThrd"><div id="manualOverride"><img src="FishFeeder-icon-3x.png"></div></div>
+		<div class="rightThrd"><div id="cfgBtn" ><img src="ic_settings_white_48dp_2x.png"></div></div>
+	</div>
+</body>
+</html>
