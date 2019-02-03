@@ -43,7 +43,7 @@
   #include <SPIFFS.h>
 #endif
 
-IOTAppStory IAS(COMPDATE,MODEBUTTON); // Initialize IotAppStory
+IOTAppStory IAS(COMPDATE,MODEBUTTON);                 // Initialize IotAppStory
 #include <ESPAsyncWebServer.h>                        // https://github.com/me-no-dev/ESPAsyncWebServer
 
 #include <NTPtimeESP.h>                               // network time protocol library
@@ -51,7 +51,7 @@ strDateTime dateTime;                                 //
 NTPtime NTPch("ch.pool.ntp.org");                     // Swiss NTP server pool, for improved accuracy :)
 
 #include <Servo.h>
-Servo feederServo;  // create servo object to control a servo
+Servo feederServo;                                    // create servo object to control a servo
 
 AsyncWebServer server(80);                            // Initialize AsyncWebServer
 
@@ -63,22 +63,22 @@ void onRequest(AsyncWebServerRequest *request){
 
 
 // ================================================ VARS =================================================
-String GetEeprom();
+
 int eepromSize = 4096;
 
-unsigned long timer;          // timer functie
-unsigned long now;            // timer functie
-int daysSinceTimeUpdate = 0;  // timer functie
-int selectedPin = 12;              // servopin var to use after config
-bool runServo = true;        // should servo run?
+unsigned long timer;                                  //  timer function
+unsigned long now;                                    //  timer function
+int daysSinceTimeUpdate = 0;                          //  timer function
+int selectedPin = 12;                                 //  servopin var to use after config
+bool runServo = true;                                 //  should servo run?
 bool servoForward = false;
-unsigned long lastServoRun;   // timer functie
-String TZOffset;
-const int maxFeedTimes = 8;
-String setFeedTimes[maxFeedTimes];     //  gekozen voer tijden
-int timeDuringDegr = 10;       //delay in ms tussen elke grade in servo beweging
+unsigned long lastServoRun;                           //  timer function
+String TZOffset;                                      //  timezone offSet
+const int maxFeedTimes = 8;                           //  limit the amount of times we want to feed to 8
+String setFeedTimes[maxFeedTimes];                    //  array to store all the feeding times
+int timeDuringDegr = 10;       //delay in ms between degrees of motion of servo movement, this will give our servo enough time to move to the requested position, it will also prevent the food from being launched into space :)
 
-//  time functie vars begin
+//  NTP function vars
   int actualyear;
   int actualMonth;
   int actualday;
@@ -86,22 +86,22 @@ int timeDuringDegr = 10;       //delay in ms tussen elke grade in servo beweging
   int actualMinute;
   int actualsecond;
   int actualdayofWeek;
-//  time functie vars einde
+//  NTP function vars
 
 // ================================================ functions ================================================
 //void handleFileList();
 //bool handleFileRead(String path);
 //String getContentType(String filename);
-int nrOfTimes(void);
-void timeCheck(void);     // feeder functie
-void clockCycle(void);    // feeder functie
-
+int nrOfTimes(void);      //  retrieve the number of feeding times stored in eeprom, stored in 1 byte
+void timeCheck(void);     //  check in with NTP server for current time
+void clockCycle(void);    //  clock function to add up the seconds to minutes and hours and check if something needs to be done
+String GetEeprom();       //  retrieve the feeding times data stored in eeprom, stored in as much eeprom as needed, 5 bytes per trigger event
 
 
 
 // ================================================ SETUP ================================================
 void setup() {
-  IAS.preSetDeviceName("feeder");                     //  preset Boardname this is also your MDNS responder: http://webtoggle.local
+  IAS.preSetDeviceName("feeder");                     //  preset Boardname this is also your MDNS responder: http://feeder.local
   IAS.preSetAutoUpdate(false);                        //  automaticUpdate (true, false)
   //Serial.print(IAS.eepFreeFrom);                    //  uncomment to see the last address or eeprom used for IAS config settings
 
@@ -135,15 +135,15 @@ void setup() {
 
   server.on("/all", HTTP_POST, [](AsyncWebServerRequest *request){
     EEPROM.begin(eepromSize);
-    int duration = EEPROM.read(501);          //  duration is stored at adress 501 of eeprom
-    int motion = EEPROM.read(502);            //  duration is stored at adress 502 of eeprom
-    String setChars = GetEeprom();
+    int duration = EEPROM.read(501);          //  duration data is stored at adress 501 of eeprom
+    int motion = EEPROM.read(502);            //  motion data is stored at adress 502 of eeprom
+    String setChars = GetEeprom();            //  large string with all the trigger moments combined
     String hrStr ="";
     String minStr ="";
     String secStr ="";
     int strLngth = setChars.length();
     String jsonTimes = "";
-      for(int i=0; i<strLngth;){
+      for(int i=0; i<strLngth;){              //  loop thru, and seperate the different trigger moments
         String thisTime="";
          for(int ii=0; ii<5;ii++){
             thisTime +=setChars[i];
@@ -155,7 +155,7 @@ void setup() {
       }
       hrStr +="\"";
     if(actualHour == 0){
-        hrStr +="0";
+        hrStr +="0";                          // actualHour is an int, so we need to slap on a 0 to the string, to match the format used for the feedTimes
         }else{
         hrStr += String(actualHour);
         }
@@ -178,7 +178,6 @@ void setup() {
     json += ",\"duration\":"+String(duration);
     json += ",\"motion\":"+String(motion);
     json += ",\"feedTimes\":[";
-  //  Serial.println(jsonTimes);                //  uncomment to view json output in serial console
     json += jsonTimes;
     json += "]}";
     Serial.println(json);
@@ -251,7 +250,7 @@ void setup() {
 
   timer = millis();
   timeCheck();
-}
+}   //  end of setup
 
 
 
@@ -261,7 +260,7 @@ void loop() {
 
 
   now = millis();
-  //overflow variable reset functie
+  //overflow variable reset function
   if((now - timer) < 0 ) {
     timer = millis();
     Serial.println("line timer reset");
@@ -356,7 +355,6 @@ void SetEeprom(int nrOfArgs, String eepromString, int startAdrr){
     EEPROM.write(399,nrOfArgs);
    for(int address=startAdrr; address<endOfblock; address++) {
     char value = eepromString.charAt(i);
-    // read a byte from the current address of the EEPROM
     EEPROM.write(address,value);
     i++;
    }
@@ -378,10 +376,10 @@ void SetConfEeprom(byte duration, byte motion){
   delay(200);
 }
 
-String GetEeprom(){
+String GetEeprom(){                                       //  retrieve data for feed times previously stored in eeprom
   EEPROM.begin(eepromSize);
   int nrOfStr = nrOfTimes();
-  int lngthOfStr = 5;
+  int lngthOfStr = 5;                                     //  HH:MM
   int currBlockLnght = (lngthOfStr*nrOfStr);
   int address = 400;
   int endOfblock = address+currBlockLnght;
@@ -403,7 +401,7 @@ void clockCycle(){                            //  gets called every 1000 milliSe
   if(actualsecond >= 60){
     actualsecond = 0;
     actualMinute = (actualMinute +1);
-    checkTimedEvents();                       //   checkTimedEvents();
+    checkTimedEvents();                       //  are we there yet?
     }
   if(actualMinute >= 60){
     actualMinute = 0;
