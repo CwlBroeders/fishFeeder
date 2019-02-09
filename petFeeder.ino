@@ -26,12 +26,13 @@
   SOFTWARE.
 
   Don't forget to upload the contents of the data folder with MkSPIFFS Tool ("ESP8266 Sketch Data Upload" in Tools menu in Arduino IDE)
-  or you can upload it to IOTAppStory.com when using the OTA functionality
+  or you can upload the file to IOTAppStory.com when using the OTA functionality
 */
 
 
-#define COMPDATE __DATE__ __TIME__
+#define COMPDATE __DATE__ __TIME__                    // compiling timestamp
 #define MODEBUTTON 0                                  // Button pin on the esp for selecting modes. D3 for the Wemos!
+
 
 
 #include <IOTAppStory.h>
@@ -42,72 +43,87 @@
   #include <AsyncTCP.h>                               // https://github.com/me-no-dev/AsyncTCP
   #include <SPIFFS.h>
 #endif
-
 IOTAppStory IAS(COMPDATE,MODEBUTTON);                 // Initialize IotAppStory
+
 #include <ESPAsyncWebServer.h>                        // https://github.com/me-no-dev/ESPAsyncWebServer
 
-#include <NTPtimeESP.h>                               // network time protocol library
-strDateTime dateTime;                                 //
-NTPtime NTPch("ch.pool.ntp.org");                     // Swiss NTP server pool, for improved accuracy :)
+#include <NTPtimeESP.h>                               // https://github.com/SensorsIot/NTPtimeESP
+//  #define DEBUG_ON                                  // uncomment for NTPtime debugging
+
+//  uncomment the ntp server pool for your part of the world if u have timeout problems
+//  for information on ntp servers look here --> http://support.ntp.org/bin/view/Servers/NTPPoolServers
+NTPtime NTPSrvr("pool.ntp.org");                  // worldwide NTP server pool
+//  NTPtime NTPSrvr("nl.pool.ntp.org");               // Dutch NTP server pool
+//  NTPtime NTPSrvr("ch.pool.ntp.org");               // Swiss NTP server pool, for improved accuracy :)
+//  NTPtime NTPSrvr("europe.pool.ntp.org");           // European NTP server pool
+//  NTPtime NTPSrvr("asia.ntp.org");                  // Asian NTP server pool
+//  NTPtime NTPSrvr("north-america.pool.ntp.org");    // North American NTP server pool
+//  NTPtime NTPSrvr("oceania.ntp.org");               // Oceanian NTP server pool
+//  NTPtime NTPSrvr("south-america.pool.ntp.org");    // South American NTP server pool
+
+strDateTime dateTime;                                 // create dateTime object
 
 #include <Servo.h>
 Servo feederServo;                                    // create servo object to control a servo
 
 AsyncWebServer server(80);                            // Initialize AsyncWebServer
 
-//called when the url is not defined here return 404
 void onRequest(AsyncWebServerRequest *request){
-  //Handle Unknown Request
+  //Handle Unknown Request, return 404, page not found
   request->send(404);
 }
 
 
 // ================================================ VARS =================================================
 
-int eepromSize = 4096;
+bool runServo = true;                       //  should servo run?
+bool servoConfigSet = false;                //  make sure we have assigned a pin to the servo object before we call feederServo.write()
+int timeDuringDegr = 10;                    //  delay in ms between servo movements to slow it down a little
 
-unsigned long timer;                                  //  timer function
-unsigned long now;                                    //  timer function
-int daysSinceTimeUpdate = 0;                          //  timer function
-int selectedPin = 12;                                 //  servopin var to use after config
-bool runServo = true;                                 //  should servo run?
-bool servoForward = false;
-unsigned long lastServoRun;                           //  timer function
-String TZOffset;                                      //  timezone offSet
-const int maxFeedTimes = 8;                           //  limit the amount of times we want to feed to 8
-String setFeedTimes[maxFeedTimes];                    //  array to store all the feeding times
-int timeDuringDegr = 10;       //delay in ms between degrees of motion of servo movement, this will give our servo enough time to move to the requested position, it will also prevent the food from being launched into space :)
+String setFeedTimes[maxFeedTimes];          //  store the times as txt to compare against the clock
+const int maxFeedTimes = 8;
 
-//  NTP function vars
-  int actualyear;
-  int actualMonth;
-  int actualday;
-  int actualHour;
-  int actualMinute;
-  int actualsecond;
-  int actualdayofWeek;
-//  NTP function vars
+int eepromSize = 4096;                      //  EEPROM
+int nrOfTimesAddr = 1000;;                  //  EEPROM
+int durationAddr = 1001;;                   //  EEPROM
+int motionAddr = 1002;;                     //  EEPROM
+int timesDataArrd = 1003;;                  //  EEPROM
+
+//  IAS config menu variables
+char* servoPin          = "12";             //  servopin var to use after config
+char* TZOffset          = "0.0";            //  select the timezone
+char* dayLightSaveTime  = "1";              //  implement daylight saving time (EU = 1 US = 2)
+
+                                            //  time function vars
+unsigned long timer;
+unsigned long now;
+int daysSinceTimeUpdate = 0;
+int actualday;
+int actualHour;
+int actualMinute;
+int actualsecond;
+                                            //  time function vars
 
 // ================================================ functions ================================================
-//void handleFileList();
-//bool handleFileRead(String path);
-//String getContentType(String filename);
-int nrOfTimes(void);      //  retrieve the number of feeding times stored in eeprom, stored in 1 byte
-void timeCheck(void);     //  check in with NTP server for current time
-void clockCycle(void);    //  clock function to add up the seconds to minutes and hours and check if something needs to be done
-String GetEeprom();       //  retrieve the feeding times data stored in eeprom, stored in as much eeprom as needed, 5 bytes per trigger event
+
+int nrOfTimes(void);
+void timeCheck(void);     //  set clock with NTP server
+void clockCycle(void);    //  add a second to the clock
+String GetEeprom();       //  load settings from eeprom
 
 
 
 // ================================================ SETUP ================================================
 void setup() {
-  IAS.preSetDeviceName("feeder");                     //  preset Boardname this is also your MDNS responder: http://feeder.local
-  IAS.preSetAutoUpdate(false);                        //  automaticUpdate (true, false)
-  //Serial.print(IAS.eepFreeFrom);                    //  uncomment to see the last address or eeprom used for IAS config settings
+  IAS.preSetDeviceName("feeder");                           //  preset Boardname this is also your MDNS responder: http://webtoggle.local
+  Serial.print(IAS.eepFreeFrom);                            // uncomment to see the last address or eeprom used for IAS config settings
+  IAS.preSetAutoUpdate(false);                              // automaticUpdate (true, false)
+  IAS.preSetAutoConfig(false);                              // automaticConfig (true, false)
+  //IAS.addField(updTimer, "Update timer:Turn on", 1, 'C'); // These fields are added to the config wifimanager and saved to eeprom. Updated values are returned to the original variable.
 
- // IAS.addField(updTimer, "Update timer:Turn on", 1, 'C'); // These fields are added to the config wifimanager and saved to eeprom. Updated values are returned to the original variable.
- // IAS.addField(updInt, "Update every", 8, 'I');           // reference to org variable | field label value | max char return | Optional "special field" char
- // IAS.addField(LEDpin, "Servo Pin", 12, 'P');
+  IAS.addField(dayLightSaveTime, "daylight saving time", 1, 'n');
+  IAS.addField(TZOffset, "time zone", 3, 'z');              // reference to org variable | field label value | max char return | Optional "special field" char
+  IAS.addField(servoPin, "Servo Pin", 2, 'P');
 
 
   // You can configure callback functions that can give feedback to the app user about the current state of the application.
@@ -122,8 +138,7 @@ void setup() {
     Serial.println(F("*-------------------------------------------------------------------------*"));
   });
 
-  IAS.begin('P');                                         // Optional parameter: What to do with EEPROM on First boot of the app? 'F' Fully erase | 'P' Partial erase(default) | 'L' Leave intact
-
+  IAS.begin('P');                                           // Optional parameter: What to do with EEPROM on First boot of the app? 'F' Fully erase | 'P' Partial erase(default) | 'L' Leave intact
 
   if(!SPIFFS.begin()){
       Serial.println(F(" SPIFFS Mount Failed"));
@@ -132,18 +147,17 @@ void setup() {
 
   EEPROM.begin(eepromSize);
 
-
-  server.on("/all", HTTP_POST, [](AsyncWebServerRequest *request){
+  server.on("/load", HTTP_POST, [](AsyncWebServerRequest *request){
     EEPROM.begin(eepromSize);
-    int duration = EEPROM.read(501);          //  duration data is stored at adress 501 of eeprom
-    int motion = EEPROM.read(502);            //  motion data is stored at adress 502 of eeprom
-    String setChars = GetEeprom();            //  large string with all the trigger moments combined
+    int duration = EEPROM.read(durationAddr);
+    int motion = EEPROM.read(motionAddr);
+    String setChars = GetEeprom();
     String hrStr ="";
     String minStr ="";
     String secStr ="";
     int strLngth = setChars.length();
     String jsonTimes = "";
-      for(int i=0; i<strLngth;){              //  loop thru, and seperate the different trigger moments
+      for(int i=0; i<strLngth;){
         String thisTime="";
          for(int ii=0; ii<5;ii++){
             thisTime +=setChars[i];
@@ -155,7 +169,7 @@ void setup() {
       }
       hrStr +="\"";
     if(actualHour == 0){
-        hrStr +="0";                          // actualHour is an int, so we need to slap on a 0 to the string, to match the format used for the feedTimes
+        hrStr +="0";
         }else{
         hrStr += String(actualHour);
         }
@@ -178,6 +192,7 @@ void setup() {
     json += ",\"duration\":"+String(duration);
     json += ",\"motion\":"+String(motion);
     json += ",\"feedTimes\":[";
+  //  Serial.println(jsonTimes);                //  uncomment to view json output in serial console
     json += jsonTimes;
     json += "]}";
     Serial.println(json);
@@ -185,7 +200,7 @@ void setup() {
     json = String();
   });
 
-  server.on("/test", HTTP_POST, [](AsyncWebServerRequest *request){
+  server.on("/feedTime", HTTP_POST, [](AsyncWebServerRequest *request){
     int nrOfArgs;
     String eepromTimeVal="";
       if (request->args() > 0 ) {
@@ -203,11 +218,9 @@ void setup() {
     }else{
       eepromTimeVal="";
       }
-    int pin12EepromStart = 400;
-    SetEeprom(nrOfArgs,eepromTimeVal,pin12EepromStart);
-     request->send(205, "", "");            //  respond with 205  https://httpstatuses.com/205
+    SetEeprom(nrOfArgs,eepromTimeVal,timesDataArrd);
+     request->send(205, "", "");                   //  respond with 205  https://httpstatuses.com/205
   });
-
 
   server.on("/conf", HTTP_POST, [](AsyncWebServerRequest *request){
     int nrOfArgs;
@@ -225,7 +238,7 @@ void setup() {
           }
       }
     SetConfEeprom(duration,degrOfMotion);
-    request->send(205, "", "");            //  respond with 205  https://httpstatuses.com/205
+    request->send(205, "", "");                       //  respond with 205  https://httpstatuses.com/205
   });
 
   server.on("/Override", HTTP_POST, [](AsyncWebServerRequest *request){
@@ -236,31 +249,26 @@ void setup() {
             }
           }
       }
-    request->send(205, "", "");            //  respond with 205  https://httpstatuses.com/205
+    request->send(205, "", "");                       //  respond with 205  https://httpstatuses.com/205
   });
-
   server.serveStatic("/", SPIFFS, "/");
   server.onNotFound(onRequest);
-
   // start the HTTP server
   server.begin();
   Serial.print(F(" HTTP server started at: "));
   Serial.println(WiFi.localIP());
   Serial.println("");
-
   timer = millis();
   timeCheck();
-}   //  end of setup
+}
 
 
 
 // ================================================ LOOP =================================================
 void loop() {
  IAS.loop(); // this routine handles the calling home functionality and reaction of the MODEBUTTON pin. If short press (<4 sec): update of sketch, long press (>7 sec): Configuration
-
-
   now = millis();
-  //overflow variable reset function
+  //overflow variable reset functie
   if((now - timer) < 0 ) {
     timer = millis();
     Serial.println("line timer reset");
@@ -269,38 +277,40 @@ void loop() {
    timer = millis();
    clockCycle();
   }
-
 }
-
 
 // ================================================ EXTRA FUNCTIONS ================================================
 
-
 void feedem(){
-   //get eeprom
-   Serial.println("Triggered!");
-    feederServo.attach(selectedPin);
-    EEPROM.begin(eepromSize);
-    int duration = EEPROM.read(501);
-    int motion = EEPROM.read(502);
-    int fwdPos = 90-(motion/2);
-    int bckPos = 90+(motion/2);
-    unsigned long keepRunning = (duration*1000);
-    int travelTime = motion * timeDuringDegr;
-    int nrOfMoves = (keepRunning/travelTime);
-    bool frstMove = true;
-    for(int i=0;i<nrOfMoves;i++){
-            if(frstMove == true){
-               frstMove = false;
-               feederServo.write(fwdPos);
-               delay(travelTime);
-            }else{
-               frstMove = true;
-               feederServo.write(bckPos);
-               delay(travelTime);
-            }
+  if(servoConfigSet){
+     //get eeprom
+     Serial.println("Triggered!");
+      feederServo.attach(12);
+      //feederServo.attach(atoi(servoPin));
+      EEPROM.begin(eepromSize);
+      int duration = EEPROM.read(durationAddr);
+      int motion = EEPROM.read(motionAddr);
+      int fwdPos = 90-(motion/2);
+      int bckPos = 90+(motion/2);
+      unsigned long keepRunning = (duration*1000);
+      int travelTime = motion * timeDuringDegr;
+      int nrOfMoves = (keepRunning/travelTime);
+      bool frstMove = true;
+      for(int i=0;i<nrOfMoves;i++){
+              if(frstMove == true){
+                 frstMove = false;
+                 feederServo.write(fwdPos);
+                 delay(travelTime);
+              }else{
+                 frstMove = true;
+                 feederServo.write(bckPos);
+                 delay(travelTime);
+              }
+      }
+      feederServo.write(0);
+  }else{
+    Serial.println("configure servo settings first!");
     }
-    feederServo.write(0);
 }
 
 // ===================== PUT YOUR TIME BASED TRIGGER EVENTS HERE ===========================                  <----
@@ -342,7 +352,7 @@ void checkTimedEvents(){
 //================           EEPROM           =====================
 int nrOfTimes(){
   EEPROM.begin(eepromSize);
-  int val = EEPROM.read(399);
+  int val = EEPROM.read(nrOfTimesAddr);
  // Serial.println(val);
   return val;
   }
@@ -352,15 +362,19 @@ void SetEeprom(int nrOfArgs, String eepromString, int startAdrr){
     int strLenght = ((nrOfArgs * lngthOfStr )+1);
     int endOfblock = strLenght+startAdrr;
     EEPROM.begin(eepromSize);
-    EEPROM.write(399,nrOfArgs);
+    EEPROM.write(nrOfTimesAddr,nrOfArgs);
    for(int address=startAdrr; address<endOfblock; address++) {
     char value = eepromString.charAt(i);
+    // read a byte from the current address of the EEPROM
     EEPROM.write(address,value);
     i++;
    }
   EEPROM.commit();
   delay(200);
 }
+
+
+
 void SetConfEeprom(byte duration, byte motion){
     EEPROM.begin(eepromSize);
       if(motion >180){
@@ -369,19 +383,20 @@ void SetConfEeprom(byte duration, byte motion){
       if(duration >254){
       duration =254;
       }
-    EEPROM.write(501,duration);
-    EEPROM.write(502,motion);
+    EEPROM.write(durationAddr,duration);
+    EEPROM.write(motionAddr,motion);
     EEPROM.commit();
   Serial.println("confEeprom set");
-  delay(200);
+  servoConfigSet = true;
+ // delay(200);
 }
 
-String GetEeprom(){                                       //  retrieve data for feed times previously stored in eeprom
+String GetEeprom(){
   EEPROM.begin(eepromSize);
   int nrOfStr = nrOfTimes();
-  int lngthOfStr = 5;                                     //  HH:MM
+  int lngthOfStr = 5;
   int currBlockLnght = (lngthOfStr*nrOfStr);
-  int address = 400;
+  int address = timesDataArrd;
   int endOfblock = address+currBlockLnght;
   char value;
   String returnVal ="";
@@ -401,7 +416,7 @@ void clockCycle(){                            //  gets called every 1000 milliSe
   if(actualsecond >= 60){
     actualsecond = 0;
     actualMinute = (actualMinute +1);
-    checkTimedEvents();                       //  are we there yet?
+    checkTimedEvents();                       //   checkTimedEvents();
     }
   if(actualMinute >= 60){
     actualMinute = 0;
@@ -418,34 +433,24 @@ void clockCycle(){                            //  gets called every 1000 milliSe
   }
 
 void timeCheck(){                             //  check in at the NTP server to keep current
-  for(int i = 0;i<6;i++){
-//    TZOffset += timeZoneOffset[i];
-    }
-  TZOffset = "+1.0";
-  float offSet;
-  char frstChar;
-  frstChar = TZOffset.charAt(0);
- // Serial.print("TZOffset = ");
- // Serial.println(TZOffset);
-  if(frstChar == '+'){
-      TZOffset.remove(0,1);
-      offSet = TZOffset.toInt();
-    }else if(frstChar == '-'){
-       TZOffset.remove(0,1);
-       offSet = TZOffset.toFloat();
-       offSet = offSet*-1;
-     }else if(isDigit(frstChar)){
-        offSet = TZOffset.toFloat();
+//  TZOffset = "1.0";
+//float offset = 1.00;
+
+  // first parameter: Time zone in floating point (for India); second parameter: 1 for European summer time; 2 for US daylight saving time
+  dateTime = NTPSrvr.getNTPtime(atof(TZOffset), 1);
+//Serial.println(TZOffset);
+//  dateTime = NTPSrvr.getNTPtime(offset, 1);
+  if(!dateTime.valid){
+    Serial.println("dateTime was invalid!");    //  ntp library is a little sketchy after the last update
+    delay(200);
+    timeCheck();
+    }else{
+      NTPSrvr.printDateTime(dateTime);
+      actualday =dateTime.day;
+      actualHour = dateTime.hour;
+      actualMinute = dateTime.minute;
+      actualsecond = dateTime.second;
+      daysSinceTimeUpdate = 0;
       }
-  // first parameter: Time zone in floating point (for India); second parameter: 1 for European summer time; 2 for US daylight saving time (not implemented yet)
-  dateTime = NTPch.getNTPtime(offSet, 1);
-  //NTPch.printDateTime(dateTime);
-  actualyear = dateTime.year;
-  actualMonth = dateTime.month;
-  actualday =dateTime.day;
-  actualHour = dateTime.hour;
-  actualMinute = dateTime.minute;
-  actualsecond = dateTime.second;
-  actualdayofWeek = dateTime.dayofWeek;
-  daysSinceTimeUpdate = 0;
+
 }
