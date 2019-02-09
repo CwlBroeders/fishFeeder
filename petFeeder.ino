@@ -106,10 +106,10 @@ int actualsecond;
 
 // ================================================ functions ================================================
 
-int nrOfTimes(void);
+int nrOfTimes(void);      //  check in eeprom how many different times have been set
 void timeCheck(void);     //  set clock with NTP server
 void clockCycle(void);    //  add a second to the clock
-String GetEeprom();       //  load settings from eeprom
+String GetEeprom();       //  load all settings from eeprom
 
 
 
@@ -285,8 +285,7 @@ void feedem(){
   if(servoConfigSet){
      //get eeprom
      Serial.println("Triggered!");
-      feederServo.attach(12);
-      //feederServo.attach(atoi(servoPin));
+      feederServo.attach(atoi(servoPin));           //  atach the pin selected in the IAS config menu to the servo
       EEPROM.begin(eepromSize);
       int duration = EEPROM.read(durationAddr);
       int motion = EEPROM.read(motionAddr);
@@ -344,7 +343,7 @@ void checkTimedEvents(){
          // Serial.println("feed moment!!!");
           feedem();
         }else{
-       // Serial.println("not a feed moment");
+         // Serial.println("not a feed moment");
           }
      }
 }
@@ -388,7 +387,6 @@ void SetConfEeprom(byte duration, byte motion){
     EEPROM.commit();
   Serial.println("confEeprom set");
   servoConfigSet = true;
- // delay(200);
 }
 
 String GetEeprom(){
@@ -410,7 +408,6 @@ String GetEeprom(){
    return returnVal;
 }
 
-
 void clockCycle(){                            //  gets called every 1000 milliSeconds to update the clock and check if something needs to be done at this time
   actualsecond = (actualsecond +1);
   if(actualsecond >= 60){
@@ -428,20 +425,15 @@ void clockCycle(){                            //  gets called every 1000 milliSe
     daysSinceTimeUpdate++;
     }
     if(daysSinceTimeUpdate >= 2){
-    timeCheck();
+    timeCheck();                                //  reset the clock every 2 days to stay current
     }
   }
 
-void timeCheck(){                             //  check in at the NTP server to keep current
-//  TZOffset = "1.0";
-//float offset = 1.00;
-
+void timeCheck(){                               //  check in at the NTP server to keep current
   // first parameter: Time zone in floating point (for India); second parameter: 1 for European summer time; 2 for US daylight saving time
   dateTime = NTPSrvr.getNTPtime(atof(TZOffset), 1);
-//Serial.println(TZOffset);
-//  dateTime = NTPSrvr.getNTPtime(offset, 1);
   if(!dateTime.valid){
-    Serial.println("dateTime was invalid!");    //  ntp library is a little sketchy after the last update
+    Serial.println("dateTime was invalid!");    //  ntp library is a little sketchy after the last update     #TODO
     delay(200);
     timeCheck();
     }else{
