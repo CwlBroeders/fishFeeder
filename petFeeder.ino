@@ -80,8 +80,8 @@ bool runServo = true;                       //  should servo run?
 bool servoConfigSet = false;                //  make sure we have assigned a pin to the servo object before we call feederServo.write()
 int timeDuringDegr = 10;                    //  delay in ms between servo movements to slow it down a little
 
+const int maxFeedTimes = 8;                 //  default set to a max of 8
 String setFeedTimes[maxFeedTimes];          //  store the times as txt to compare against the clock
-const int maxFeedTimes = 8;
 
 int eepromSize = 4096;                      //  EEPROM
 int nrOfTimesAddr = 1000;;                  //  EEPROM
@@ -95,12 +95,11 @@ char* TZOffset          = "0.0";            //  select the timezone
 char* dayLightSaveTime  = "1";              //  implement daylight saving time (EU = 1 US = 2)
 
                                             //  time function vars
-unsigned long timer;
+unsigned long timer;                        //  unsigned long variables to store and check the millis() value
 unsigned long now;
-int daysSinceTimeUpdate = 0;
-int actualday;
-int actualHour;
-int actualMinute;
+int daysSinceTimeUpdate = 0;                //  we want to reset the clock every once in a while with network time
+int actualHour;                             //  we will only need days, hours, minutes and seconds
+int actualMinute;                           //  but week month and year are also available, as is the day of the week
 int actualsecond;
                                             //  time function vars
 
@@ -115,15 +114,14 @@ String GetEeprom();       //  load all settings from eeprom
 
 // ================================================ SETUP ================================================
 void setup() {
-  IAS.preSetDeviceName("feeder");                           //  preset Boardname this is also your MDNS responder: http://webtoggle.local
-  Serial.print(IAS.eepFreeFrom);                            // uncomment to see the last address or eeprom used for IAS config settings
-  IAS.preSetAutoUpdate(false);                              // automaticUpdate (true, false)
-  IAS.preSetAutoConfig(false);                              // automaticConfig (true, false)
-  //IAS.addField(updTimer, "Update timer:Turn on", 1, 'C'); // These fields are added to the config wifimanager and saved to eeprom. Updated values are returned to the original variable.
+  IAS.preSetDeviceName("feeder");                                   //  preset Boardname this is also your MDNS responder: http://webtoggle.local
+  Serial.print(IAS.eepFreeFrom);                                    // uncomment to see the last address or eeprom used for IAS config settings
+  IAS.preSetAutoUpdate(false);                                      // automaticUpdate (true, false)
+  IAS.preSetAutoConfig(false);                                      // automaticConfig (true, false)
 
-  IAS.addField(dayLightSaveTime, "daylight saving time", 1, 'n');
-  IAS.addField(TZOffset, "time zone", 3, 'z');              // reference to org variable | field label value | max char return | Optional "special field" char
-  IAS.addField(servoPin, "Servo Pin", 2, 'P');
+  IAS.addField(dayLightSaveTime, "daylight saving time", 1, 'n');   // These fields are added to the config wifimanager and saved to eeprom. Updated values are returned to the original variable.
+  IAS.addField(TZOffset, "time zone", 3, 'z');                      // reference to org variable | field label value | max char return | Optional "special field" char
+  IAS.addField(servoPin, "Servo Pin", 2, 'P');                      // pick the pin that commands the servo, default is 12
 
 
   // You can configure callback functions that can give feedback to the app user about the current state of the application.
@@ -251,6 +249,7 @@ void setup() {
       }
     request->send(205, "", "");                       //  respond with 205  https://httpstatuses.com/205
   });
+
   server.serveStatic("/", SPIFFS, "/");
   server.onNotFound(onRequest);
   // start the HTTP server
@@ -376,10 +375,10 @@ void SetEeprom(int nrOfArgs, String eepromString, int startAdrr){
 
 void SetConfEeprom(byte duration, byte motion){
     EEPROM.begin(eepromSize);
-      if(motion >180){
+      if(motion >180){        //  limit to 180, since the servo cant move more then 180 degrees
         motion =180;
       }
-      if(duration >254){
+      if(duration >254){      //  limit to 254, since this is the largest integet we can store in a single byte of eeprom
       duration =254;
       }
     EEPROM.write(durationAddr,duration);
@@ -421,7 +420,6 @@ void clockCycle(){                            //  gets called every 1000 milliSe
     }
     if(actualHour >= 24){
     actualHour = 0;
-    actualday++;
     daysSinceTimeUpdate++;
     }
     if(daysSinceTimeUpdate >= 2){
@@ -438,7 +436,6 @@ void timeCheck(){                               //  check in at the NTP server t
     timeCheck();
     }else{
       NTPSrvr.printDateTime(dateTime);
-      actualday =dateTime.day;
       actualHour = dateTime.hour;
       actualMinute = dateTime.minute;
       actualsecond = dateTime.second;
