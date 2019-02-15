@@ -412,7 +412,7 @@ void clockCycle(){                            //  gets called every 1000 milliSe
   if(actualsecond >= 60){
     actualsecond = 0;
     actualMinute = (actualMinute +1);
-    checkTimedEvents();                       //   checkTimedEvents();
+    checkTimedEvents();                       //   checkTimedEvents() gets called every 60 seconds;
     }
   if(actualMinute >= 60){
     actualMinute = 0;
@@ -431,15 +431,15 @@ void timeCheck(){                               //  check in at the NTP server t
   // first parameter: Time zone in floating point (for India); second parameter: 1 for European summer time; 2 for US daylight saving time
   dateTime = NTPSrvr.getNTPtime(atof(TZOffset), 1);
   if(!dateTime.valid){
-    Serial.println("dateTime was invalid!");    //  ntp library is a little sketchy after the last update     #TODO
+    Serial.println("dateTime was invalid!");    //  ntp library is a little sketchy after the last update, first call always returns invalid time     #TODO
     delay(200);
     timeCheck();
     }else{
       NTPSrvr.printDateTime(dateTime);
-      actualHour = dateTime.hour;
+      actualHour = dateTime.hour;               //  update all time variables to keep current with ntp time
       actualMinute = dateTime.minute;
       actualsecond = dateTime.second;
-      daysSinceTimeUpdate = 0;
+      daysSinceTimeUpdate = 0;                  //  reset to 0, the clock is up to date again
       }
 
 }
