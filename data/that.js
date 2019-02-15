@@ -2,6 +2,7 @@
 //  onBodyLoad runs after the DOM has finished loading
 //  all of the DOM elements we need to manipulate can now be assigned
 //  this makes sure all the elements actually excist when we assign them
+//  onBodyLoad is called from <script> in the HTML <head>.
 function onBodyLoad() {
     var manualOverride = document.getElementById("manualOverride");             //  the manualOverride button
     manualOverride.onclick = Override;
@@ -17,7 +18,7 @@ function onBodyLoad() {
     loadValues();
     var run = setInterval(chronos, 1000)
 }
-var time, setFeedTimes, timeStamp, hrs, mins, secs;                              //  declare the variables and, if needed, assign values
+var time, setFeedTimes, timeStamp, hrs, mins, secs;                             //  declare the variables and, if needed, assign values
 var running = !1;
 var maxFeedTime = 0;
 
