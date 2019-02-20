@@ -4,23 +4,22 @@
 //  this makes sure all the elements actually excist when we assign them
 //  onBodyLoad is called from <script> in the HTML <head>.
 function onBodyLoad() {
-    var manualOverride = document.getElementById("manualOverride");             //  the manualOverride button
+    var manualOverride = document.getElementById("manualOverride");             						//  the manualOverride button
     manualOverride.onclick = Override;
-    var newFeedTime = document.getElementById("newFeedTime");                   //  input for the feed times, call setMoment() when clicked
+    var newFeedTime = document.getElementById("newFeedTime");                   						//  input for the feed times, call setMoment() when clicked
     newFeedTime.onclick = setMoment;
-    var cfgBtn = document.getElementById("cfgBtn");                             //  config button to make the inputs visible
-    cfgBtn.onclick = configure;
-    var confSub = document.getElementById("confSubmit");                        //  button to submit the servo configuration
+    var cfgBtn = document.getElementById("cfgBtn");                             						//  config button to make the inputs visible
+    cfgBtn.onclick = toggleConfigure;
+    var confSub = document.getElementById("confSubmit");                        						//  button to submit the servo configuration
     confSub.onclick = confSubmit;
-    var readme = document.getElementById("readme");                             //  button to toggle the user instructions
+    var readme = document.getElementById("readme");                            					 	  //  button to toggle the user instructions
     readme.onclick = instructVis;
-    time = document.getElementById("time");                                     //  the element that will hold the clock
+    time = document.getElementById("time");                                     						//  the element that will hold the clock
     loadValues();
     var run = setInterval(chronos, 1000)
 }
-var time, setFeedTimes, timeStamp, hrs, mins, secs;                             //  declare the variables and, if needed, assign values
-var running = !1;
-var maxFeedTime = 0;
+var time, setFeedTimes, timeStamp, hrs, mins, secs, maxFeedTime;                            //  declare the variables and, if needed, assign values
+//var maxFeedTime = 0;
 
 //  loadValues calls our ESP and parses the JSON response
 //  the JSON response will contain all the relevant data that may be stored in EEPROM
@@ -29,37 +28,36 @@ var maxFeedTime = 0;
 function loadValues() {
     var xh = new XMLHttpRequest();
     xh.onreadystatechange = function() {
-        if (xh.readyState == 4) {                                               //  4	DONE	The operation is complete.
-            if (xh.status == 200) {                                             //  https://httpstatuses.com/200
-                var res = JSON.parse(xh.responseText);                          //  parse the returned JSON and store data to the result variable
-                var eepConfSetsDur = res.duration;                              //  pass value from sesponse to DOM element
+        if (xh.readyState == 4) {                                              	 						//  4	DONE	The operation is complete.
+            if (xh.status == 200) {                                             						//  https://httpstatuses.com/200
+                var res = JSON.parse(xh.responseText);                         						  //  parse the returned JSON and store data to the result variable
+                var eepConfSetsDur = res.duration;                              						//  pass value from sesponse to DOM element
                 document.getElementById("duration").setAttribute('value', eepConfSetsDur);
                 var eepConfSetsMot = res.motion;
                 document.getElementById("angle").setAttribute('value', eepConfSetsMot);
-                timeStamp = res.time.split(".");                                //  seperate the returned value into hours minute and second and pass to variables for tiime keeping
+                timeStamp = res.time.split(".");                                						//  seperate the returned value into hours minute and second and pass to variables for tiime keeping
                 hrs = timeStamp[0];
                 mins = timeStamp[1];
                 secs = timeStamp[2];
                 var setFeedTimes = res.feedTimes;
-                var x = setFeedTimes.length;
-                maxFeedTime = x;
+                maxFeedTime = setFeedTimes.length;
                  //  if feedtimes were removed, we would have too many elements, so we remove them and create the amount we need
                 while (document.getElementById("feedTimeForm").hasChildNodes()) {
                     document.getElementById("feedTimeForm").removeChild(document.getElementById("feedTimeForm").lastChild)
                 }
                 //  now loop thru all of the times we had returned and create a new new <div> element and give it the correct attributes
-                for (var i = 0; i < x; i++) {
+                for (var i = 0; i < maxFeedTime; i++) {
                     var newTimeOutput = document.createElement("div");
                     newTimeOutput.setAttribute('id', 'time' + i);
-                    newTimeOutput.setAttribute('name', 'feedTime[]');           //  note that the 'name' attribute has squared brackets, for PHP this would indicate an array
+                    newTimeOutput.setAttribute('name', 'feedTime[]');          					 	  //  note that the 'name' attribute has squared brackets, for PHP this would indicate an array
                     newTimeOutput.setAttribute('class', 'feedTimes');
-                    newTimeOutput.setAttribute('data-value', setFeedTimes[i]);  //  this is the value that will be passed down with POST
+                    newTimeOutput.setAttribute('data-value', setFeedTimes[i]);  						//  this is the value that will be passed down with POST
                     newTimeOutput.innerHTML = setFeedTimes[i];
                     document.getElementById("feedTimeForm").appendChild(newTimeOutput);
-                    newTimeOutput.onclick = editMoment                          //  give the element a callback function on a click event, this will allow our user to edit our feedtimes later
+                    newTimeOutput.onclick = editMoment                          						//  give the element a callback function on a click event, this will allow our user to edit our feedtimes later
                 }
-                var elem = document.getElementById("instructions");             //  check if the instructions should be displayed, we will show instructions by default if there are 2 or less feedtimes
-                if (x > 2) {
+                var elem = document.getElementById("instructions");             						//  check if the instructions should be displayed, we will show instructions by default if there are 2 or less feedtimes
+                if (maxFeedTime > 2) {
                     elem.style.display = 'none'
                 } else {
                     elem.style.display = 'block'
@@ -76,10 +74,10 @@ var hideReadme = !1;
 function instructVis() {
     var elem = document.getElementById("instructions");
     if (hideReadme == !0) {
-        elem.style.display = 'none';                                            // set this elements CSS to display:none;
+        elem.style.display = 'none';                                           							// set this elements style to display:none;
         hideReadme = !hideReadme
     } else {
-        elem.style.display = 'block';                                           // set this elements CSS to display:block;
+        elem.style.display = 'block';                                           						// set this elements style to display:block;
         hideReadme = !hideReadme
     }
 }
@@ -99,7 +97,7 @@ function chronos() {
     }
     currentHours = (hrs < 10 ? "0" : "") + hrs;
     currentMinutes = (mins < 10 ? "0" : "") + mins;
-    time.innerHTML = currentHours + ":" + currentMinutes                        //  update the the text in the time <div> to show the current time
+    time.innerHTML = currentHours + ":" + currentMinutes                        						//  update the the text in the time <div> to show the current time
 }
 //  use the POST method to send our feedTimes to our ESP
 function postFeedTimes() {
@@ -107,60 +105,61 @@ function postFeedTimes() {
     xh.open("POST", "/feedTime", !0);
     xh.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     var valsString = "";
-    var feedTimeVals = document.getElementsByClassName("feedTimes");            //  collect all the elements of class "feedTimes"
+    var feedTimeVals = document.getElementsByClassName("feedTimes");            						//  collect all the elements of class "feedTimes"
     var fTvallngth = feedTimeVals.length;
     for (var i = 0; i < fTvallngth; i++) {
-        if (feedTimeVals[i].dataset.value !== '') {                             //  check if any value has actually been set, if so, append it to our payload
+        if (feedTimeVals[i].dataset.value !== '') {                             						//  check if any value has actually been set, if so, append it to our payload
             valsString += feedTimeVals[i].getAttribute("name");
             valsString += '=';
             valsString += feedTimeVals[i].dataset.value;
-            valsString += "&"                                                   //  add & after the value so we can reasily repead this for multiple values
+            valsString += "&"                                                   						//  add & after the value so we can reasily repead this for multiple values
         }
     }
-    if (valsString == "") {                                                     //  if there are no feedtimes, send --:-- as a value, our sketch will check for this
-        valsString += "feedTime[]=--:--&"                                       //  need to add the & at the end to stay consistent
+    if (valsString == "") {                                                     						//  if there are no feedtimes, send --:-- as a value, our sketch will check for this
+        valsString += "feedTime[]=--:--&"                                      						  //  need to add the & at the end to stay consistent
     }
-    valsString = valsString.substring(0, valsString.length - 1);                //  remove the & at the end of the last value
-    console.log(valsString);                                                    //  print the value in the browser console
+    valsString = valsString.substring(0, valsString.length - 1);                						//  remove the & at the end of the last value
+    console.log(valsString);                                                    						//  print the value in the browser console
     xh.send(valsString);
-    loadValues()                                                                //  reload values as to check
+    loadValues()                                                                						//  reload values as to check
 };
 
 //  tell the ESP to trigger the servo when the override button is pushed
 function Override() {
     var confvals = document.getElementsByClassName("conf");
-    if (confvals[0].value !== '' && confvals[1].value !== '') {                 //  check if servo movement and duration variables have been set
+    if (confvals[0].value !== '' && confvals[1].value !== '') {                 						//  check if servo movement and duration variables have been set
         var xh = new XMLHttpRequest();
         xh.open("POST", "/Override", !0);
         xh.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
         var valsString = "Override=true";
         xh.send(valsString)
-    } else {                                                                    //    if not, ask the user to configure them
-        configure()
+    } else {                                                                    						//    if not, ask the user to configure them now
+        toggleConfigure()
     }
+		console.log("manual override");
 };
 
 //  the user clicked a feedtime to edit/remove
 function editMoment() {
-    maxFeedTime--;
+    maxFeedTime--;																																					//	the feedTime that was clicked will be removed, so we decrement maxFeedTime
     document.getElementById("inputMoment").value = this.dataset.value;
     var addBtn = document.getElementById("newFeedTime");
     if (addBtn.value == 'Add' || addBtn.value == 'maxed') {
         addBtn.setAttribute('value', 'Edit')
     }
-    this.parentNode.removeChild(this)
+    this.parentNode.removeChild(this)																												//	remove the element that was clicked
 }
 
 // the user have a new time value he wants to set
 function setMoment() {
     var newMoment = document.getElementById("inputMoment").value;
-    var elem = document.getElementById("instructions");                         //  check if the instructions still need to be shown
+    var elem = document.getElementById("instructions");                         						//  check if the instructions still need to be shown
     if (maxFeedTime < 1) {
         elem.style.display = 'block'
     } else {
         elem.style.display = 'none'
     }
-    if (maxFeedTime < 8) {                                                      //   check if we dont have 8 values already
+    if (maxFeedTime < 8) {                                                      						//   check if we dont have 8 values already
         maxFeedTime++;
         var newTimeInput = document.createElement("div");
         newTimeInput.setAttribute('name', 'feedTime[]');
@@ -173,20 +172,21 @@ function setMoment() {
     } else {
         document.getElementById("newFeedTime").setAttribute('value', 'maxed')
     }
-    postFeedTimes()                                                             //  call the postFeedTimes() function to update the ESP
+    postFeedTimes()                                                             						//  call the postFeedTimes() function to update the ESP
 }
 
 //  check if the configuration menu needs to be shown
 var hidecConfigPopup = !1;
-function configure() {
+function toggleConfigure() {
     configPopup = document.getElementById("configPopup");
     if (hidecConfigPopup == !0) {
-        configPopup.style.display = 'none';
+        configPopup.style.display = 'none';																									//	css style display property will be set to 'none' this will hide the element
         hidecConfigPopup = !1
     } else {
-        configPopup.style.display = 'block';
+        configPopup.style.display = 'block';																								//	css style display property will be set to 'block' this will show the element
         hidecConfigPopup = !0
     }
+		console.log(configPopup.style.display);																									//	output new style property of configPopup to browser console to confirm
 }
 
 //  POST the configuration values for the servo to the ESP
@@ -198,18 +198,33 @@ function confSubmit() {
     var confvals = document.getElementsByClassName("conf");
     var vallngth = confvals.length;
     for (var i = 0; i < vallngth; i++) {
+			var nameAttribute = confvals[i].name;
+			var valueAttribute = confvals[i].value;
+			console.log(nameAttribute);																														//	output values to browser console
+			console.log(valueAttribute);
         if (confvals[i].value !== '') {
-            valsString += confvals[i].getAttribute("name");
-            valsString += '=';
-            valsString += confvals[i].value;
-            valsString += "&"
+            valsString += nameAttribute;
+						valsString += '=';
+						if(nameAttribute == "duration"){
+							if(parseInt(valueAttribute) > 254){																						//	duration will be stored as integer and must fit into 1 byte of the EEPROM
+								valueAttribute = '254';
+								document.getElementById("duration").value = valueAttribute;
+							}
+						}else if(nameAttribute == "angle"){
+							if(parseInt(valueAttribute) > 180){																						//	limit the degree of movement for the servo to 180
+								valueAttribute = '180';
+								document.getElementById("angle").value = valueAttribute;
+							}
+						}
+						valsString += valueAttribute;
+            valsString += "&";
         }
     }
-    if (valsString == "") {                                                     //  check if a value has actually been set, abort if not
+    if (valsString == "") {                                                     					//  check if a value has actually been set, abort if not
         xh.abort()
     }
-    console.log(valsString);                                                    //  print the value in the browser console
-    valsString = valsString.substring(0, valsString.length - 1);
+    console.log(valsString);                                                    					//  print the value in the browser console
+    valsString = valsString.substring(0, valsString.length - 1);													//	remove the last & from the string before we send the POST request
     xh.send(valsString);
-    configure()                                                                 //  servo has been configured so we can close the config menu
+    toggleConfigure()                                                                 		//  servo has been configured so we can close the config menu
 }
